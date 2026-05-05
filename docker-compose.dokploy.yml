@@ -79,6 +79,8 @@ services:
       BACKEND_URL: http://backend:3333
       BACKEND_API_SECRET: ${API_SECRET}
       YJS_SERVER_LOG_LEVEL: info
+      YJS_SERVER_STORAGE_DRIVER: fs
+      YJS_SERVER_STORE_DIR: /data/yjs-server
       SENTRY_ENVIRONMENT: production
     expose:
       - '1999'
