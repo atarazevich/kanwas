@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-kanwas}
       POSTGRES_DB: kanwas
     volumes:
-      - kanwas_postgres_data:/var/lib/postgresql/data
+      - kanwas_pg_data_v2:/var/lib/postgresql/data
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U kanwas']
       interval: 10s
@@ -107,7 +107,7 @@ services:
       - kanwas-network
 
 volumes:
-  kanwas_postgres_data:
+  kanwas_pg_data_v2:
   yjs_server_data:
 
 networks:
