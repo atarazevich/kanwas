@@ -1,0 +1,116 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kanwas
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-kanwas}
+      POSTGRES_DB: kanwas
+    volumes:
+      - kanwas_postgres_data:/var/lib/postgresql/data
+      - ./dev/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kanwas']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    expose:
+      - '5432'
+    networks:
+      - kanwas-network
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    expose:
+      - '6379'
+    networks:
+      - kanwas-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: 3333
+      LOG_LEVEL: info
+      APP_KEY: ${APP_KEY}
+      APP_NAME: kanwas
+      TZ: UTC
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: kanwas
+      DB_PASSWORD: ${DB_PASSWORD:-kanwas}
+      DB_DATABASE: kanwas
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      COMPOSIO_API_KEY: ${COMPOSIO_API_KEY}
+      PARALLEL_API_KEY: ${PARALLEL_API_KEY}
+      API_SECRET: ${API_SECRET}
+      YJS_SERVER_HOST: yjs-server:1999
+      YJS_SERVER_PROTOCOL: ws
+      DRIVE_DISK: fs
+    expose:
+      - '3333'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - kanwas-network
+
+  yjs-server:
+    build:
+      context: .
+      dockerfile: ./yjs-server/Dockerfile.dev
+    restart: unless-stopped
+    environment:
+      PORT: 1999
+      HOST: 0.0.0.0
+      BACKEND_URL: http://backend:3333
+      BACKEND_API_SECRET: ${API_SECRET}
+      YJS_SERVER_LOG_LEVEL: info
+      SENTRY_ENVIRONMENT: production
+    expose:
+      - '1999'
+    volumes:
+      - yjs_server_data:/data/yjs-server
+    depends_on:
+      - backend
+    networks:
+      - kanwas-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile.dev
+    restart: unless-stopped
+    stdin_open: true
+    environment:
+      VITE_API_URL: ${VITE_API_URL}
+      VITE_YJS_SERVER_URL: ${VITE_YJS_SERVER_URL}
+    expose:
+      - '5173'
+    depends_on:
+      - backend
+      - yjs-server
+    networks:
+      - kanwas-network
+
+volumes:
+  kanwas_postgres_data:
+  yjs_server_data:
+
+networks:
+  kanwas-network:
+    driver: bridge
